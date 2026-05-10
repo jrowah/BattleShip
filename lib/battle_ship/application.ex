@@ -14,9 +14,11 @@ defmodule BattleShip.Application do
       {BattleShip.GameSupervisor, []}
     ]
 
+    # starts an ets table we will use to store game state and retrieve in case a game process crashes and is recovered.
+    :ets.new(:game_state, [:public, :named_table])
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    :ets.new(:game_state, [:public, :named_table])
     opts = [strategy: :one_for_one, name: BattleShip.Supervisor]
     Supervisor.start_link(children, opts)
   end
