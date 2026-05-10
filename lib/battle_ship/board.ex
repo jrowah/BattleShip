@@ -7,7 +7,7 @@ defmodule BattleShip.Board do
   alias BattleShip.Ship
 
   @typedoc """
-  Represents a game board, which is a map of ships. Each key is an `Island.island_type()`.
+  Represents a game board, which is a map of ships. Each key is an `Ship.ship_type()`.
   """
   @type t() :: %{optional(Ship.ship_type()) => Ship.t()}
 

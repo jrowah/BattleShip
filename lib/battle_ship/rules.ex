@@ -1,6 +1,11 @@
 defmodule BattleShip.Rules do
   @moduledoc """
-  This is the Rules module.
+  This is the Rules module. A GenSate machine that represents the rules of the game and transitions states based on actions taken by players. The rules are as follows:
+  - The game starts in the `:initialized` state, and transitions to the `:players_set` state when a player is added.
+  - In the `:players_set` state, players can position their ships and set their ships. Once both players have set their ships, the game transitions to `:player1_turn`.
+  - In the `:player1_turn` state, player1 can guess a coordinate. After guessing, the game transitions to `:player2_turn`. During player1's turn, if player1 wins, the game transitions to `:game_over`.
+  - In the `:player2_turn` state, player2 can guess a coordinate. After guessing, the game transitions to `:player1_turn`. During player2's turn, if player2 wins, the game transitions to `:game_over`.
+  - In any state, if an invalid action is taken, the state does not transition and an error is returned.
   """
   alias __MODULE__
   alias BattleShip.Player

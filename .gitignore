@@ -1,7 +1,8 @@
 # The directory Mix will write compiled artifacts to.
 /_build/
 
-# If you run "mix test --cover", coverage assets end up here.
+# If you r
+un "mix test --cover", coverage assets end up here.
 /cover/
 
 # The directory Mix downloads your dependencies sources to.
@@ -27,3 +28,4 @@ battle_ship-*.tar
 
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
+*.DS_Store

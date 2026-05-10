@@ -1,6 +1,6 @@
 defmodule BattleShip.Game do
   @moduledoc """
-  Client interface functions for an islands game GenServer
+  Client interface functions for an ships game GenServer
   """
 
   @behaviour Access
@@ -39,7 +39,7 @@ defmodule BattleShip.Game do
         }
 
   # 30 minutes
-  @timeout_ms 108_000
+  @timeout_ms 60 * 60 * 24 * 1000
 
   @typedoc """
   Represents an integer timeout value in milliseconds
@@ -60,8 +60,8 @@ defmodule BattleShip.Game do
   # Represents the call messages that can be sent to the game GenServer
   @typep call_messages() ::
            {:add_player, name :: String.t()}
-           | {:position_island, Player.role(), Ship.ship_type(), row :: pos_integer(), column :: pos_integer()}
-           | {:set_islands, Player.role()}
+           | {:position_ship, Player.role(), Ship.ship_type(), row :: pos_integer(), column :: pos_integer()}
+           | {:set_ships, Player.role()}
            | {:guess_coordinate, Player.role(), row :: pos_integer(), column :: pos_integer()}
 
   # Tests whether the given `term` is a game reference or not, which means testing whether
@@ -79,14 +79,14 @@ defmodule BattleShip.Game do
 
   @doc """
   Given the player `name`, returns a `Registry` via tuple to be used for registering
-  an islands game `GenServer` under `name`
+  a ships game `GenServer` under `name`. Registers a game process under the given `name` in the `Registry.Game` registry.
   """
 
-  @spec create_via_tuple(String.t()) :: {:via, Registry, {Registry.Game, String.t()}}
-  def create_via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
+  @spec start_via_tuple(String.t()) :: {:via, Registry, {Registry.Game, String.t()}}
+  def start_via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
 
   @doc """
-  Starts an islands game GenServer
+  Starts an ships game GenServer. Is the client function (public interface) that wraps `GenServer.start_link/3` for starting an ships game GenServer process. The GenServer process is registered under the given `name` in the `Registry.Game` registry.
   """
   @spec start_link(String.t()) ::
           {:ok, pid()}
@@ -95,7 +95,7 @@ defmodule BattleShip.Game do
           | {:stop, any()}
           | :ignore
   def start_link(name) when is_binary(name) do
-    GenServer.start_link(__MODULE__, name, name: create_via_tuple(name))
+    GenServer.start_link(__MODULE__, name, name: start_via_tuple(name))
   end
 
   @doc """
@@ -107,7 +107,7 @@ defmodule BattleShip.Game do
   end
 
   @doc """
-  Positions a player's island
+  Positions a player's ship
   """
   @spec position_ship(
           game_reference(),
@@ -119,15 +119,15 @@ defmodule BattleShip.Game do
           :ok
           | :error
           | {:error, :invalid_coordinate}
-          | {:error, :invalid_island_type}
-          | {:error, :overlapping_island}
+          | {:error, :invalid_ship_type}
+          | {:error, :overlapping_ship}
   def position_ship(game_reference, player_role, ship_type, row, column)
       when is_game_reference(game_reference) and is_player_role(player_role) do
     GenServer.call(game_reference, {:position_ship, player_role, ship_type, row, column})
   end
 
   @doc """
-  Sets a player's island positions
+  Sets a player's ship positions and marks them as set.
   """
   @spec set_ships(game_reference(), Player.role()) ::
           :ok | {:ok, Board.t()} | :error | {:error, :not_all_ships_positioned}
@@ -152,27 +152,8 @@ defmodule BattleShip.Game do
 
   @impl GenServer
   def init(name) do
-    # Check if an existing game was stored in the game state ETS table. If so,
-    # then grab its state. If not, use the fresh initialized game state.
-    initial_state =
-      case :ets.lookup(:game_state, name) do
-        [] ->
-          fresh_state = %__MODULE__{
-            player1: Player.new(name),
-            player2: Player.new(),
-            rules: Rules.new()
-          }
-
-          # Create the game state
-          :ets.insert(:game_state, {name, fresh_state})
-
-          fresh_state
-
-        [{^name, previous_state}] ->
-          previous_state
-      end
-
-    {:ok, initial_state, @timeout_ms}
+    send(self(), {:set_state, name})
+    {:ok, fresh_state(name)}
   end
 
   @impl GenServer
@@ -301,13 +282,12 @@ defmodule BattleShip.Game do
   #### Private Functions #################################################
   ########################################################################
 
-  defp update_player2_name(state_data, name),
-    do: %{state_data | player2: Player.update_name(state_data.player2, name)}
+  defp update_player2_name(state_data, name), do: put_in(state_data.player2.name, name)
 
   defp update_rules(state_data, rules), do: %{state_data | rules: rules}
 
   defp reply_success(state_data, reply) do
-    # Update the game state ETS table with the new game state
+    # Update the game state ETS table with the new game state; some state will change whenever there is a successful reply
     :ets.insert(:game_state, {state_data.player1.name, state_data})
     {:reply, reply, state_data, @timeout_ms}
   end
